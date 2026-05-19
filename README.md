@@ -9,6 +9,11 @@ runtime stack and common runtime helpers such as Samtools, Bedtools, and
 Graphviz. It is intended as a portable command-level environment, not as a
 workflow replacement.
 
+Release `3.7.6-r2` is a help-only TAFFISH update. It keeps the upstream
+software, Dockerfile, runtime dependencies, smoke tests, and command behavior
+unchanged from `3.7.6-r1`, and refreshes the terminal
+`taf-hicexplorer --help` text.
+
 ## Installation
 
 Install from the public TAFFISH Hub index:
@@ -20,14 +25,14 @@ taf install hicexplorer
 Install the exact release:
 
 ```sh
-taf install hicexplorer 3.7.6-r1
+taf install hicexplorer 3.7.6-r2
 ```
 
 For local testing before publication:
 
 ```sh
 taf build
-./target/taf-hicexplorer-v3.7.6-r1 --help
+./target/taf-hicexplorer-v3.7.6-r2 --help
 ```
 
 ## Usage
@@ -170,9 +175,9 @@ hicTrainTADClassifier
 ```text
 name: hicexplorer
 command: taf-hicexplorer
-version: 3.7.6-r1
+version: 3.7.6-r2
 kind: tool
-image: ghcr.io/taffish/hicexplorer:3.7.6-r1
+image: ghcr.io/taffish/hicexplorer:3.7.6-r2
 platforms: linux/amd64, linux/arm64
 ```
 
@@ -183,13 +188,13 @@ Maintainer checks:
 ```sh
 taf check
 taf build
-./target/taf-hicexplorer-v3.7.6-r1 --help
-./target/taf-hicexplorer-v3.7.6-r1 -- --version
-TAFFISH_CONTAINER_BACKEND=docker ./target/taf-hicexplorer-v3.7.6-r1 hicInfo --version
+./target/taf-hicexplorer-v3.7.6-r2 --help
+./target/taf-hicexplorer-v3.7.6-r2 -- --version
+TAFFISH_CONTAINER_BACKEND=docker ./target/taf-hicexplorer-v3.7.6-r2 hicInfo --version
 taf publish --release --dry-run
-docker build -t ghcr.io/taffish/hicexplorer:3.7.6-r1 -f docker/Dockerfile .
-docker run --rm ghcr.io/taffish/hicexplorer:3.7.6-r1 hicexplorer --version
-docker run --rm ghcr.io/taffish/hicexplorer:3.7.6-r1 hicPlotMatrix --version
+docker build -t ghcr.io/taffish/hicexplorer:3.7.6-r2 -f docker/Dockerfile .
+docker run --rm ghcr.io/taffish/hicexplorer:3.7.6-r2 hicexplorer --version
+docker run --rm ghcr.io/taffish/hicexplorer:3.7.6-r2 hicPlotMatrix --version
 ```
 
 The repository wrapper files are licensed under Apache-2.0. HiCExplorer is
