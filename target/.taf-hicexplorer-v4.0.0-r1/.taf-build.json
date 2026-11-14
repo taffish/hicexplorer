@@ -1,0 +1,6 @@
+{
+  "artifact": "taf-hicexplorer-v4.0.0-r1",
+  "schema": "taffish.build/v1",
+  "source_sha256": "4d757b17405dfded2bab953bbbc5cc2946c0e042e31b928a277f6ed969f13562",
+  "wrapper_sha256": "2022cc4919adb2e2d24818f7c7ee2701e74ab82ef0ec2cfdb9b46d239b80ed40"
+}

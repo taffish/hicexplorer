@@ -1,0 +1,49 @@
+[package]
+name = "hicexplorer"
+kind = "tool"
+version = "4.0.0"
+release = 1
+license = "Apache-2.0"
+main = "src/main.taf"
+
+[repository]
+url = "https://github.com/taffish/hicexplorer"
+
+[meta]
+domain = "bio"
+categories = ["hic", "chromatin", "genomics", "visualization", "quality-control"]
+keywords = ["hicexplorer", "Hi-C", "capture-Hi-C", "Micro-C", "contact-matrix", "cooler", "TAD", "loops", "stripes", "compartments", "CHiCAGO"]
+description = "HiCExplorer 4 command-line tools and Python API for building, analyzing, converting and visualizing contact matrices, with native offline QC reports."
+
+[command]
+name = "taf-hicexplorer"
+
+[runtime]
+pipe = true
+command_mode = true
+
+[container]
+image = "ghcr.io/taffish/hicexplorer:4.0.0-r1"
+dockerfile = "docker/Dockerfile"
+build_platforms = "linux/amd64,linux/arm64"
+
+[upstream]
+name = "HiCExplorer"
+type = "github"
+repo = "deeptools/HiCExplorer"
+homepage = "https://hicexplorer.readthedocs.io/"
+release_url = "https://github.com/deeptools/HiCExplorer/releases/tag/4.0.0"
+downloads = "https://codeload.github.com/deeptools/HiCExplorer/tar.gz/d8ed7103fd7c51c784f787f1bdb9c17facb66453"
+version = "4.0.0"
+license = "GPL-3.0-or-later"
+citation = "Wolff et al. 2020; Wolff et al. 2018; Ramirez et al. 2018"
+doi = "10.1093/nar/gkaa220"
+pmid = "32301980"
+watch = "tags"
+strip_prefix = ""
+
+[smoke]
+backend = "docker"
+timeout = 300
+exist = ["hicexplorer","hicFindRestSite","hicAggregateContacts","hicBuildMatrix","hicBuildMatrixMicroC","hicCorrectMatrix","hicCorrelate","hicFindTADs","hicMergeMatrixBins","hicPlotMatrix","hicPlotDistVsCounts","hicSumMatrices","hicInfo","hicQC","hicCompareMatrices","hicPCA","hicTransform","hicPlotViewpoint","chicViewpointBackgroundModel","chicPlotViewpoint","chicViewpoint","chicAggregateStatistic","chicDifferentialTest","chicQualityControl","chicSignificantInteractions","hicConvertFormat","hicAdjustMatrix","hicNormalize","hicAverageRegions","hicPlotAverageRegions","hicDetectLoops","hicValidateLocations","hicMergeLoops","hicCompartmentalization","hicQuickQC","hicPlotSVL","hicCreateThresholdFile","hicHyperoptDetectLoops","hicHyperoptDetectLoopsHiCCUPS","hicMergeDomains","hicDifferentialTAD","chicExportData","hicInterIntraTAD","chicChicagoBackgroundModel","chicChicagoScores","chicChicagoSignificantInteractions","chicChicagoPlotViewpoint","hicDifferentialAnalysis","hicDetectStripes","hicArrowhead","hicMatrixQC","hicMergeTADbins","hicPrepareQCreport","python","samtools","bedtools","dot","pyGenomeTracks"]
+test = ["python /usr/local/share/taffish/hicexplorer/check.py identity", "python /usr/local/share/taffish/hicexplorer/check.py matrix", "python /usr/local/share/taffish/hicexplorer/check.py build", "python /usr/local/share/taffish/hicexplorer/check.py bam", "python /usr/local/share/taffish/hicexplorer/check.py plots", "python /usr/local/share/taffish/hicexplorer/check.py report", "python /usr/local/share/taffish/hicexplorer/check.py new_tools", "python /usr/local/share/taffish/hicexplorer/check.py negative"]

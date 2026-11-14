@@ -1,65 +1,46 @@
-taf-hicexplorer 3.7.6-r2
-
-TAFFISH wrapper for HiCExplorer, a command suite for Hi-C, capture Hi-C, and
-Micro-C matrix processing, analysis, conversion, QC, and visualization.
+taf-hicexplorer 4.0.0-r1 — contact matrices, plots and offline QC
 
 Usage:
-  taf-hicexplorer [TAF-APP-OPTION]
-  taf-hicexplorer -- [HICEXPLORER-OPTION]
-  taf-hicexplorer hicInfo [ARGS...]
-  taf-hicexplorer hicPlotMatrix [ARGS...]
-  taf-hicexplorer hicBuildMatrix [ARGS...]
-  taf-hicexplorer hicCorrectMatrix [SUBCOMMAND] [ARGS...]
-  taf-hicexplorer COMMAND [COMMAND-ARGS...]
+  Start in a writable project directory.
+  taf-hicexplorer --help                      Show this wrapper help
+  taf-hicexplorer --version                   Show the package version
+  taf-hicexplorer hicInfo --version            Show the upstream version
+  taf-hicexplorer hicBuildMatrix --help         Show a tool's options
+  taf-hicexplorer hicCompartmentalization -h   This tool uses short -h only
+  taf-hicexplorer hicexplorer                  List available upstream tools
 
-TAF app options:
-  -h, --help       Show this help text
-  -v, --version    Show package and command version
-  --compile        Print generated shell code instead of running it
-  --               Stop parsing TAFFISH wrapper options
+Inspect, plot and convert:
+  taf-hicexplorer hicInfo --matrices sample.cool
+  taf-hicexplorer hicPlotMatrix --matrix sample.cool --outFileName contacts.png
+  taf-hicexplorer hicConvertFormat --matrices sample.cool --inputFormat cool --outputFormat h5 --outFileName sample.h5
 
-Help and examples:
-  taf-hicexplorer -- --help
-  taf-hicexplorer -- --version
-  taf-hicexplorer hicInfo --help
-  taf-hicexplorer hicPlotMatrix --help
-  taf-hicexplorer hicBuildMatrix --help
-  taf-hicexplorer hicCorrectMatrix --help
-  taf-hicexplorer hicInfo --matrices matrix.cool
-  taf-hicexplorer hicPlotMatrix --matrix matrix.cool --outFileName matrix.png
-  taf-hicexplorer hicFindRestSite --fasta genome.fa --searchPattern GATC --outFile sites.bed
-  taf-hicexplorer hicConvertFormat --matrices matrix.cool --inputFormat cool --outputFormat h5 --outFileName matrix.h5
-  taf-hicexplorer hicCorrectMatrix correct --matrix matrix.h5 --outFileName corrected.h5
+Build from a 4DN pairs file; use a fresh output/QC directory per run:
+  taf-hicexplorer hicBuildMatrix --pairsFile reads.pairs.gz --binSize 10000 --outFileName sample.cool --QCfolder build-qc --threads 4
+For paired BAM input, see hicBuildMatrix --help and supply matching restriction
+information. Allow sufficient memory and writable scratch space for your data.
 
-Common command groups:
-  Pre-processing: hicFindRestSite, hicBuildMatrix, hicBuildMatrixMicroC,
-  hicQuickQC, hicQC.
-  Matrix handling: hicInfo, hicCorrectMatrix, hicConvertFormat, hicNormalize,
-  hicAdjustMatrix, hicMergeMatrixBins, hicSumMatrices, hicCompareMatrices.
-  Analysis: hicFindTADs, hicMergeDomains, hicDifferentialTAD, hicDetectLoops,
-  hicPCA, hicTransform, hicCorrelate, hicCompartmentalization.
-  Visualization: hicPlotMatrix, hicPlotTADs, hicPlotDistVsCounts,
-  hicPlotViewpoint, hicAggregateContacts, hicAverageRegions.
-  Capture Hi-C: chicQualityControl, chicViewpoint, chicSignificantInteractions,
-  chicDifferentialTest, chicPlotViewpoint, chicExportData.
+View results:
+  taf-hicexplorer hicMatrixQC --matrices sample.cool --outFileName matrix-qc.html
+  taf-hicexplorer pyGenomeTracks --tracks tracks.ini --region chr1:0-100000 --outFileName tracks.png
+Open the images or matrix-qc.html on your host. Keep the complete build-qc folder
+when opening build-qc/hicQC.html, so linked tables stay available. These are
+upstream static offline reports; no GUI service, network port or display is needed
+on Docker, Podman or Apptainer. Numeric matrix-QC results are also in matrix-qc.tsv.
 
-Notes:
-  HiCExplorer is a suite. The default hicexplorer command lists the suite and
-  reports the upstream version, but real analysis should use explicit command
-  mode such as taf-hicexplorer hicInfo ...
-  For commands with subcommands, keep the upstream command first, for example
-  taf-hicexplorer hicCorrectMatrix correct ...
-  Plotting uses Matplotlib Agg for headless containers.
-  Samtools, Bedtools, Graphviz, cooler, hicmatrix, hic2cool, pybedtools,
-  pyBigWig, pysam, and pyGenomeTracks are included through the pinned runtime.
-  Larger alignment/sorting/duplicate workflows should use dedicated apps.
+Reuse an administrator-prepared reference read-only:
+  Use an absolute host directory without spaces; keep outputs in your own project.
+  HIC_REF=/srv/references/hicexplorer/assembly-v1
+  TAFFISH_CONTAINER_BACKEND=docker TAFFISH_DOCKER_RUN_ARGS="-v ${HIC_REF}:/mnt:ro" taf-hicexplorer hicFindRestSite --fasta /mnt/genome.fa --searchPattern GATC --outFile sites.bed
+  TAFFISH_CONTAINER_BACKEND=podman TAFFISH_PODMAN_RUN_ARGS="-v ${HIC_REF}:/mnt:ro" taf-hicexplorer hicFindRestSite --fasta /mnt/genome.fa --searchPattern GATC --outFile sites.bed
+  TAFFISH_CONTAINER_BACKEND=apptainer TAFFISH_APPTAINER_RUN_ARGS="--bind ${HIC_REF}:/mnt:ro" taf-hicexplorer hicFindRestSite --fasta /mnt/genome.fa --searchPattern GATC --outFile sites.bed
+The reference must match your assembly/coordinates. Files need read permission;
+parent directories need traversal permission. No reference or model is downloaded.
 
-Container:
-  image: ghcr.io/taffish/hicexplorer:3.7.6-r2
-  platforms: linux/amd64, linux/arm64
+If a file is not found, check its path inside the container and the mount.
+For a trusted filename with spaces in TAFFISH 0.11, preserve inner quotes:
+  taf-hicexplorer hicInfo --matrices '"sample with spaces.cool"'
+Do not use a shared read-only reference directory as the working/output directory.
 
-Upstream:
-  docs:    https://hicexplorer.readthedocs.io/
-  source:  https://github.com/deeptools/HiCExplorer
-  license: GPL-3.0-or-later
-  citation: Wolff et al. 2020, doi:10.1093/nar/gkaa220
+hicTADClassifier and hicTrainTADClassifier were removed upstream in version 4.
+Use pyGenomeTracks instead of the removed hicPlotTADs entry. Details about version
+changes, resources, independent Galaxy services and provenance are in the README.

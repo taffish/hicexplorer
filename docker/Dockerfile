@@ -1,91 +1,67 @@
-FROM mambaorg/micromamba:1.5.10-bookworm-slim AS runtime
+# syntax=docker/dockerfile:1
+# Source identity and Conda artifact hashes are fixed. The official archive and
+# Conda channels are still external services: artifacts can disappear. Debian
+# package metadata/security updates can also drift. This is not an offline or
+# bit-for-bit rebuild guarantee; revalidate successors instead of changing tags.
+ARG MAMBA_BASE=mambaorg/micromamba:latest@sha256:e1476182cd40eb1f7c0cfae4adec9bfd78f3d7f05c61368306abfdc8939c1198
+FROM scratch AS upstream
+ADD --checksum=sha256:06f25fe092b7bc9beaf89dd31407abd26d9b5371f8c638d43e3210c450764c46 https://codeload.github.com/deeptools/HiCExplorer/tar.gz/d8ed7103fd7c51c784f787f1bdb9c17facb66453 /source.tar.gz
 
-ARG HICEXPLORER_VERSION=3.7.6
-
+FROM ${MAMBA_BASE} AS environment
 USER root
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
+ARG TARGETARCH
+COPY docker/locks/linux-64.lock docker/locks/linux-aarch64.lock /usr/local/share/taffish/hicexplorer/locks/
+RUN set -eu; \
+    case "$TARGETARCH" in amd64) platform=linux-64 ;; arm64) platform=linux-aarch64 ;; *) exit 64 ;; esac; \
+    micromamba create --yes --no-rc --prefix /opt/hic \
+      --file "/usr/local/share/taffish/hicexplorer/locks/${platform}.lock"; \
+    micromamba clean --all --yes
+ENV PATH="/opt/hic/bin:${PATH}" \
+    PYTHONNOUSERSITE=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    MPLBACKEND=Agg
 
-ENV DEBIAN_FRONTEND=noninteractive
+FROM environment AS build
+COPY docker/locks/build-linux-64.lock docker/locks/build-linux-aarch64.lock /usr/local/share/taffish/hicexplorer/locks/
+# Debian packages are resolved at rebuild time; the base is digest-pinned, but
+# its live apt repository is not a snapshot. Keep compilation tools out of runtime.
+RUN apt-get update && apt-get install -y --no-install-recommends \
+      build-essential cmake ninja-build ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+ARG TARGETARCH
+RUN set -eu; \
+    case "$TARGETARCH" in amd64) platform=linux-64 ;; arm64) platform=linux-aarch64 ;; *) exit 64 ;; esac; \
+    micromamba install --yes --no-rc --prefix /opt/hic \
+      --file "/usr/local/share/taffish/hicexplorer/locks/build-${platform}.lock"; \
+    micromamba clean --all --yes
+ARG BUILD_JOBS=2
+# The source remains unmodified. Large upstream fixtures stay in the build
+# stage; the wheel excludes tests. Native builds use upstream's own SIMD rules.
+RUN --mount=from=upstream,source=/source.tar.gz,target=/tmp/source.tar.gz,ro \
+    set -eu; \
+    printf '%s  %s\n' 06f25fe092b7bc9beaf89dd31407abd26d9b5371f8c638d43e3210c450764c46 /tmp/source.tar.gz | sha256sum --check -; \
+    mkdir /src /wheels; \
+    tar -xzf /tmp/source.tar.gz --strip-components=1 -C /src; \
+    cd /src; \
+    CMAKE_ARGS="-DCMAKE_PREFIX_PATH=/opt/hic -DPython_EXECUTABLE=/opt/hic/bin/python" \
+    CMAKE_BUILD_PARALLEL_LEVEL="$BUILD_JOBS" \
+      python -m pip wheel --no-deps --no-build-isolation --wheel-dir /wheels .; \
+    mkdir -p /licenses; \
+    cp LICENSE cpp/THIRD_PARTY_NOTICES.md /licenses/; \
+    cp cpp/third_party/spectra/LICENSE /licenses/Spectra-LICENSE
 
-RUN set -eux; \
-    for attempt in 1 2 3 4 5 6; do \
-      if apt-get -o Acquire::Retries=3 update \
-       && apt-get -o Acquire::Retries=3 install -y --no-install-recommends \
-            bash \
-            ca-certificates \
-            coreutils \
-            procps; then \
-        break; \
-      fi; \
-      if [ "$attempt" = "6" ]; then exit 1; fi; \
-      apt-get clean; \
-      rm -rf /var/lib/apt/lists/*; \
-      sleep 5; \
-    done; \
-    rm -rf /var/lib/apt/lists/*
-
-USER mambauser
-
-RUN micromamba install -y -n base \
-      -c conda-forge \
-      -c bioconda \
-      "python=3.10" \
-      "hicexplorer=${HICEXPLORER_VERSION}" \
-      "hicmatrix=17.2" \
-      "hic2cool=1.0.1" \
-      "cooler=0.10.4" \
-      "pygenometracks=3.9" \
-      "pysam=0.24.0" \
-      "pybedtools=0.12.0" \
-      "scikit-learn=1.3.2" \
-      "samtools=1.23.1" \
-      "bedtools=2.31.1" \
-      "graphviz=14.1.2" \
- && micromamba clean -a -y
-
-ENV PATH=/opt/conda/bin:${PATH}
-ENV LD_LIBRARY_PATH=/opt/conda/lib
-ENV PYTHONNOUSERSITE=1
-ENV MPLBACKEND=Agg
-
-USER root
-
-RUN set -eux; \
-    hicexplorer --version 2>&1 | grep -F "${HICEXPLORER_VERSION}" >/dev/null; \
-    hicexplorer --help 2>&1 | grep -F "hicBuildMatrix" >/dev/null; \
-    hicInfo --version 2>&1 | grep -F "${HICEXPLORER_VERSION}" >/dev/null; \
-    hicBuildMatrix --version 2>&1 | grep -F "${HICEXPLORER_VERSION}" >/dev/null; \
-    hicBuildMatrixMicroC --version 2>&1 | grep -F "${HICEXPLORER_VERSION}" >/dev/null; \
-    hicConvertFormat --version 2>&1 | grep -F "${HICEXPLORER_VERSION}" >/dev/null; \
-    hicPlotMatrix --version 2>&1 | grep -F "${HICEXPLORER_VERSION}" >/dev/null; \
-    chicViewpoint --version 2>&1 | grep -F "${HICEXPLORER_VERSION}" >/dev/null; \
-    samtools --version | grep -F "samtools 1.23.1" >/dev/null; \
-    bedtools --version | grep -F "v2.31.1" >/dev/null; \
-    dot -V 2>&1 | grep -F "graphviz" >/dev/null; \
-    python -c "import hicexplorer, hicmatrix, cooler, pybedtools, pyBigWig, pysam, sklearn, matplotlib, graphviz"
-
-FROM runtime AS checked
-
-RUN set -eux; \
-    mkdir -p /tmp/taf-hicexplorer-check; \
-    cd /tmp/taf-hicexplorer-check; \
-    printf ">chr1\nAAAAGATCAAAAGATCTTTT\n" > genome.fa; \
-    hicFindRestSite --fasta genome.fa --searchPattern GATC --outFile sites.bed; \
-    test -s sites.bed; \
-    grep -F "chr1" sites.bed >/dev/null; \
-    python -c 'import cooler, pandas as pd; bins = pd.DataFrame({"chrom": ["chr1", "chr1"], "start": [0, 1000], "end": [1000, 2000]}); pixels = pd.DataFrame({"bin1_id": [0, 0, 1], "bin2_id": [0, 1, 1], "count": [5, 2, 3]}); cooler.create_cooler("tiny.cool", bins=bins, pixels=pixels, ordered=True)'; \
-    hicInfo --matrices tiny.cool | grep -F "tiny.cool" >/dev/null; \
-    hicPlotMatrix --matrix tiny.cool --outFileName tiny.png >/dev/null; \
-    test -s tiny.png; \
-    hicConvertFormat --matrices tiny.cool --inputFormat cool --outputFormat h5 --outFileName tiny.h5 >/dev/null; \
-    test -s tiny.h5; \
-    hicInfo --matrices tiny.h5 | grep -F "tiny.h5" >/dev/null; \
-    cd /; \
-    rm -rf /tmp/taf-hicexplorer-check
-
-WORKDIR /root
-
+FROM environment AS runtime
+RUN --mount=from=build,source=/wheels,target=/wheels,ro \
+    python -m pip install --no-deps --no-cache-dir /wheels/*.whl
+COPY --from=build /licenses/ /usr/local/share/licenses/hicexplorer/
+COPY tests/check.py /usr/local/share/taffish/hicexplorer/check.py
+# Only lightweight identity/import checks belong in a native build. Plotting,
+# numerical fixtures and read-only/non-root checks run after the image is built.
+RUN python -c 'import importlib.metadata as m; assert m.version("HiCExplorer") == "4.0.0"; from hicexplorer import _hicx' \
+    && hicInfo --version
+ENV TAFFISH_ENV=TAFFISH \
+    TAFFISH_NAME=hicexplorer
+WORKDIR /tmp
 ENTRYPOINT []
 CMD ["/bin/bash"]
-
-ENV TAFFISH_ENV=TAFFISH
-ENV TAFFISH_NAME=hicexplorer
